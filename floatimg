@@ -1,0 +1,79 @@
+import tkinter as tk
+from tkinter import filedialog
+from PIL import Image, ImageTk
+
+class FloatingImage:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Floating Image Viewer")
+        self.root.attributes("-alpha", 0.7)  # Initial opacity
+        self.root.attributes("-topmost", True)  # Always on top
+        self.root.geometry("800x600")  # Initial window size
+
+        self.canvas = tk.Canvas(root, bg='grey')
+        self.canvas.pack(fill='both', expand=True)
+
+        # Bindings
+        self.root.bind("<F1>", self.load_image)
+        self.root.bind("<F2>", lambda e: self.zoom(1.1))
+        self.root.bind("<F3>", lambda e: self.zoom(0.9))
+        self.root.bind("<F4>", lambda e: self.change_opacity(0.1))
+        self.root.bind("<F5>", lambda e: self.change_opacity(-0.1))
+        self.root.bind("<Escape>", lambda e: self.root.destroy())
+
+        # For window dragging
+        self.root.bind("<Button-1>", self.start_move)
+        self.root.bind("<B1-Motion>", self.on_move)
+
+        self.current_image = None
+        self.tk_image = None  # Store the PhotoImage object to prevent garbage collection
+        self.image_id = None
+        self.zoom_factor = 1
+
+    def load_image(self, event):
+        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png *.gif")])
+        if file_path:
+            self.current_image = Image.open(file_path)
+        if file_path:
+            try:
+                self.current_image = Image.open(file_path)
+                self.zoom_factor = 1
+                self.update_image()
+            except Exception as e:
+                print(f"Error loading image: {e}")
+
+    def zoom(self, factor):
+        if self.current_image:
+            self.zoom_factor *= factor
+            self.update_image()
+
+    def change_opacity(self, change):
+        new_opacity = self.root.attributes("-alpha") + change
+        new_opacity = min(max(new_opacity, 0.1), 1.0)
+        self.root.attributes("-alpha", new_opacity)
+
+    def update_image(self):
+        if self.current_image:
+            size = (int(self.current_image.size[0] * self.zoom_factor), 
+                    int(self.current_image.size[1] * self.zoom_factor))
+            self.tk_image = ImageTk.PhotoImage(self.current_image.resize(size, Image.Resampling.LANCZOS))
+            if self.image_id:
+                self.canvas.delete(self.image_id)
+            self.image_id = self.canvas.create_image(0, 0, anchor="nw", image=self.tk_image)
+            self.canvas.config(scrollregion=self.canvas.bbox("all"))
+
+    def start_move(self, event):
+        self.root.x = event.x
+        self.root.y = event.y
+
+    def on_move(self, event):
+        deltax = event.x - self.root.x
+        deltay = event.y - self.root.y
+        x = self.root.winfo_x() + deltax
+        y = self.root.winfo_y() + deltay
+        self.root.geometry(f"+{x}+{y}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = FloatingImage(root)
+    root.mainloop()
